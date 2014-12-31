@@ -55,23 +55,33 @@
 #   -w, --work-dir    
 #     Top level git working directory
 #
-#   --image-filename <filename>
-#     Name of the image file to generate
-#
 #   --dot-filename <filename>
 #     Name of the dot file to generate
+#
+#   --image-filename <filename>
+#     Name of the image file to generate
 #
 #   --display-cmd <command>
 #     Command to use to display image
 #
 #   --sha1-length <length>
-#     Number of sha1 characters to display in the graph
-#  
+#     Number of sha1 digits to display in the graph. Must be a number between
+#     4 and 40 inclusive.
+#
 #   --hide-legend
 #     Don't display the legend
 #
 #   --hide-objects
 #     Don't display git objects
+#
+#   --hide-refs
+#     Don't display references
+#
+#   --hide-reflogs
+#     Don't display reflogs
+#
+#   --hide-index
+#     Don't display the index
 #
 #   --hide-commitcontent
 #     Hide commit content
@@ -85,19 +95,9 @@
 #   --hide-blobcontent
 #     Hide blob content
 #
-#   --hide-refs
-#     Don't display references
-#
-#   --hide-reflogs
-#     Don't display reflogs
-#
-#   --hide-index
-#     Don't display the index
-#
 #   --color-scheme <color scheme>
-#     Choose color scheme
-#        <color scheme> can be one of: set312, spectral11, blues9, brbg11
-#                                      bupu9, dark28, paired12, pastel19, set19
+#     Choose color scheme. <color scheme> can be one of: default, set312,
+#     spectral11, blues9, brbg11, bupu9, dark28, paired12, pastel19, set19
 #
 #   --color-commit <color>
 #     Set color for commit objects
@@ -115,12 +115,12 @@
 #     Set default color
 #
 #   --orientation <orientation>
-#     Change the layout orientation of the graph.   Must be one 
-#     of the following:
-#         TB      top to bottom, the default
-#         BT      bottom to top
-#         LR      left to right
-#         RL      right to left
+#     Change the layout orientation of the graph. Must be one of the
+#     following:
+#       TB  top to bottom, the default
+#       BT  bottom to top
+#       LR  left to right
+#       RL  right to left
 #
 # AUTHOR
 #   Written by Florian Kaufmann <sensorflo@gmail.com>
@@ -136,6 +136,12 @@
 #   git(1)
 
 # define color schemes
+color_scheme_default_commit="palegreen1"
+color_scheme_default_tree="lightyellow"
+color_scheme_default_blob="white"
+color_scheme_default_tag="white"
+color_scheme_default_default="white"
+
 color_scheme_set312_commit="/set312/7"
 color_scheme_set312_tree="/set312/6"
 color_scheme_set312_blob="/set312/3"
@@ -197,21 +203,17 @@ displaycmd=display
 sha1length=4
 showlegend=1
 showobjects=1
-showcommits=1
-showtrees=1
-showtags=1
-showblobs=1
+showrefs=1
+showreflogs=1
+showindex=1
 showcommitcontent=1
 showtreecontent=1
 showtagcontent=1
 showblobcontent=1
-showrefs=1
-showreflogs=1
-showindex=1
 orientation="TB"
 export GIT_DIR=$(git rev-parse --git-dir)
 export GIT_WORK_TREE=$(git rev-parse --show-toplevel)
-colorscheme="set312"
+colorscheme="default"
 
 # set colors (hack ... got to be a better way)
 color_commit=$(eval "echo \${color_scheme_${colorscheme}_commit}")
@@ -224,41 +226,40 @@ color_default=$(eval "echo \${color_scheme_${colorscheme}_default}")
 print_usage_and_exit() {
   cat <<EOF
 Usage: git-draw [options]
-  -h | --help                         Print help message & exit
-  -p | --print-only                   Only print .dot to stdout.
-  -i | --image-only                   Only create an image, and a .dot file beforehand.
-  -g | --git-dir                      Git repository directory to use [$GIT_DIR]
-  -w | --work-dir                     Top level git working directory [$GIT_WORK_TREE]
-       --image-filename <filename>    Name of the image file to generate [$imgfilename]
-       --dot-filename <filename>      Name of the dot file to generate [$dotfilename]
-       --display-cmd <command>        Command to use to display image [$displaycmd]
-       --sha1-length <length>         Number of sha1 characters to display [$sha1length]
-       --hide-legend                  Don't display the legend
-       --hide-objects                 Don't display git objects
-       --hide-commitcontent           Don't display commit content
-       --hide-tagcontent              Don't display tag content
-       --hide-treecontent             Don't display tree content
-       --hide-blobcontent             Don't display blob content
-       --hide-refs                    Don't display references
-       --hide-reflogs                 Don't display reflogs
-       --hide-index                   Don't display the index
-       --color-scheme <color scheme>  Choose color scheme.  Can be one of the following:
-                                            set312, spectral11, blues9, brbg11
-                                            bupu9, dark28, paired12, pastel19, set19
-       --color-commit <color>         Set color for commit objects
-       --color-tag <color>            Set color for tag objects
-       --color-tree <color>           Set color for tree objects 
-       --color-blob <color>           Set color for blob objects
-       --color-default <color>        Set default color
-       --orientation <orientation>    Change the graph orientation [default=$orientation] 
-                                      <orientation> must be one of the following:
-                                         TB      top to bottom, the default
-                                         BT      bottom to top
-                                         LR      left to right
-                                         RL      right to left
+  -h|--help                      Print help message & exit
+  -p|--print-only                Only print .dot to stdout
+  -i|--image-only                Only create an image, and a .dot file beforehand
+  -g|--git-dir                   Git repository directory to use
+  -w|--work-dir                  Top level git working directory
+  --dot-filename <filename>      Name of the dot file to generate
+  --image-filename <filename>    Name of the image file to generate
+  --display-cmd <command>        Command to use to display image
+  --sha1-length <length>         Number of sha1 digits to display
+  --hide-legend                  Don't display the legend
+  --hide-objects                 Don't display git objects
+  --hide-refs                    Don't display references
+  --hide-reflogs                 Don't display reflogs
+  --hide-index                   Don't display the index
+  --hide-commitcontent           Don't display commit content
+  --hide-tagcontent              Don't display tag content
+  --hide-treecontent             Don't display tree content
+  --hide-blobcontent             Don't display blob content
+  --color-scheme <color scheme>  Choose color scheme. Can be one of: default,
+                                 set312, spectral11, blues9, brbg11, bupu9,
+                                 dark28, paired12, pastel19, set19
+  --color-commit <color>         Set color for commit objects
+  --color-tag <color>            Set color for tag objects
+  --color-tree <color>           Set color for tree objects
+  --color-blob <color>           Set color for blob objects
+  --color-default <color>        Set default color
+  --orientation <orientation>    Change the graph orientation.
+                                 <orientation> must be one of the following:
+                                 TB  top to bottom, the default
+                                 BT  bottom to top
+                                 LR  left to right
+                                 RL  right to left
 
-The primary documentation is at the top of the git-draw script itself, see
-$0
+The primary documentation is at the top of the git-draw script itself.
 EOF
   exit $1
 }
@@ -277,29 +278,15 @@ EOF
 #      'type=' and 'id=' to be very clear. Optionally turn off with options.
 #   -  add a graph title / caption which tells the git command(s) since the
 #      last version of the repository content.
+#   -  Provide options to choose the tool to display the image outputted by
+#      dot.
 #   -  Read gitrepository-layou(1) to find out more things which could be
 #      displayed
 #   -  Draw multiple repos in one image. Usefull to demonstrate distributed git.
 #   -  Draw packed objects and refs in a subgraph respectively.
-#   -  Make option handling more robust
-
-# DONE
-#   -  Provide options to choose the tool to display the image outputted by
-#      dot.
 #   -  Allow that the current working directory can be any subdirectory of a
 #      git project. Similarly, allow to specify the git repository via command
 #      line arguments.
-#   -  Add option to watch git directory & update image if it changes
-#   -  Add option to specify display length of sha1 hashes
-#   -  Add options to specify output filenames
-#   -  Color schemes
-#   -  Option for colors of each object
-#   -  Options to hide object contents
-#   -  Support for all those possible other layouts of git repositories. Bare
-#      repository, a .git file at the root pointing to the real directory,
-#      environment variables etc. Most probably by using git commands
-#      exclusive opposed to directly access files within .git, or by asking
-#      git for the path to the repository.
 
 abbreviate_sha1() {
   # BUG: in a blob or commit-msg, would also replace what looks like a sha1
@@ -345,40 +332,36 @@ print_dot_objects() {
       perl -pe 's/([^a-zA-Z0-9\n\r])/\\$1/g; s/(\r?\n)?$/\\l/;')
 
     case $object_type in
-      commit) 
-            fillcolor="$color_commit"
-            if [ $showcommitcontent != 1 ]; then
-                objcontent=""
-            fi
-            ;; 
-
-      tag)    
-            fillcolor="$color_tag"
-            if [ $showtagcontent != 1 ]; then
-                objcontent=""
-            fi
-            ;; 
-
-      tree)  
-            fillcolor="$color_tree"
-            if [ $showtreecontent != 1 ]; then
-                objcontent=""
-            fi
-            ;; 
-
-      blob) 
-            fillcolor="$color_blob"
-            if [ $showblobcontent != 1 ]; then
-                objcontent=""
-            fi
-            ;; 
-
-      *)      
-            fillcolor="$color_default"
-            ;;
+    commit)
+      fillcolor="$color_commit"
+      if [ $showcommitcontent != 1 ]; then
+        objcontent=""
+      fi
+      ;;
+    tag)
+      fillcolor="$color_tag"
+      if [ $showtagcontent != 1 ]; then
+        objcontent=""
+      fi
+      ;;
+    tree)
+      fillcolor="$color_tree"
+      if [ $showtreecontent != 1 ]; then
+        objcontent=""
+      fi
+      ;;
+    blob)
+      fillcolor="$color_blob"
+      if [ $showblobcontent != 1 ]; then
+        objcontent=""
+      fi
+      ;;
+    *)
+      fillcolor="$color_default"
+      ;;
     esac
 
-    echo "  $dotid [fillcolor=\"$fillcolor\", style=\"filled,rounded\", "\
+    printf %s "  $dotid [fillcolor=\"$fillcolor\", style=\"filled,rounded\", "\
       "label=\"{{obj:$object_type|$id}|$objcontent}\"]"
 
     # todo: use git's commands to extract the object references
@@ -518,29 +501,24 @@ print_dot() {
   echo "  rankdir=\"$orientation\";"
 
   if [ $showlegend = 1 ]; then
-      echo "  subgraph cluster_0 {"
-      echo "    color=gray80;"
-      echo "    label = \"legend\\l\";"
-      echo "    legend_node [label=\"{{type:subtype|id/name}|content\\l|metadata from config\\l}\"]"
-      echo "  }"
+    echo "  subgraph cluster_0 {"
+    echo "    color=gray80;"
+    echo "    label = \"legend\\l\";"
+    echo "    legend_node [label=\"{{type:subtype|id/name}|content\\l|metadata from config\\l}\"]"
+    echo "  }"
   fi
-
-  if [ $showobjects = 1 ]; then 
-      print_dot_objects 
+  if [ $showobjects = 1 ]; then
+    print_dot_objects
   fi
-
-  if [ $showrefs = 1 ]; then 
-      print_dot_references
+  if [ $showrefs = 1 ]; then
+    print_dot_references
   fi
-
   if [ $showreflogs = 1 ]; then
-      print_dot_ref_logs
+    print_dot_ref_logs
   fi
-
   if [ $showindex = 1 ]; then
-      print_dot_index
+    print_dot_index
   fi
-
   echo "}"
 }
 
@@ -576,12 +554,21 @@ do
       shift
       ;;
 
+    --image-filename)
+      imgfilename=$2
+      shift
+      ;;
+
     --display-cmd)
       displaycmd=$2
       shift
       ;;
 
     --sha1-length)
+      if ! perl -e 'if ($ARGV[0]=~m/\D/ || $ARGV[0]<4 || $ARGV[0]>40) { exit(1); }' "$2" ; then
+        echo "ERROR: Argument to --sha1-lenght must be a number between 4 and 40 inclusive." >&2
+        exit 1
+      fi
       sha1length=$2
       shift
       ;;
@@ -623,6 +610,11 @@ do
       ;;
 
     --color-scheme)
+      if ! perl -e 'if ($ARGV[0] !~ m/^(default|set312|spectral11|blues9|
+          brbg11|bupu9|dark28|paired12|pastel19|set19)$/x) { exit(1); }' "$2" ; then
+        echo "ERROR: Invalid color scheme ($2)." >&2
+        print_usage_and_exit 1 >&2
+      fi
       colorscheme=$2
       color_commit=$(eval "echo \${color_scheme_${colorscheme}_commit}")
       color_tag=$(eval "echo \${color_scheme_${colorscheme}_tag}")
@@ -632,38 +624,36 @@ do
       shift
       ;;
 
-    --color-commit)
-      color_commit=$2
-      shift
-      ;;
-
-    --color-tag)
-      color_tag=$2
-      shift
-      ;;
-
-    --color-tree)
-      color_tree=$2
-      shift
-      ;;
-
-    --color-blob)
-      color_blob=$2
-      shift
-      ;;
-
-    --color-default)
-      color_default=$2
+    --color-*)
+      case "$1" in
+      --color-commit) color_commit=$2;;
+      --color-tag) color_tag=$2;;
+      --color-tree) color_tree=$2;;
+      --color-blob) color_blob=$2;;
+      --color-default) color_default=$2;;
+      *) echo "ERROR: unknown option ($1)" >&2;
+         print_usage_and_exit 1 >&2;;
+      esac
+      # prevent the case that the user supplied color can have special meaning
+      # in the dot script
+      if ! perl -e 'if ($ARGV[0] =~ m/\\|"/) { exit(1); }' "$2" ; then
+        echo "ERROR: Argument to $1 cannot contain \\ or \"" >&2
+        exit 1
+      fi
       shift
       ;;
 
     --orientation)
+      if ! perl -e 'if ($ARGV[0] !~ m/^(TB|BT|LR|RL)$/) { exit(1); }' "$2" ; then
+        echo "ERROR: Invalid orientation ($2)." >&2
+        print_usage_and_exit 1 >&2
+      fi
       orientation=$2
       shift
       ;;
 
     --* | -?)
-      echo "ERROR: unknown option ($1)";
+      echo "ERROR: unknown option ($1)" >&2
       print_usage_and_exit 1 >&2
       ;;
 
@@ -675,9 +665,9 @@ do
       continue
       ;;
 
-    # Done with options
     *)
-      break
+      echo "ERROR: only options are accepted, no further arguments ($1)" >&2
+      print_usage_and_exit 1 >&2
       ;;
   esac
 
@@ -686,10 +676,9 @@ done
 
 # check that image_only & print_only aren't both selected
 if [ "$image_only" -a "$print_only" ]; then
-    echo "ERROR: --image_only and --print_only are mutualy exclusive options"
-    print_usage_and_exit 1 >&2
+  echo "ERROR: --image_only and --print_only are mutualy exclusive options" >&2
+  print_usage_and_exit 1 >&2
 fi
-
 
 # check preconditions
 if [ ! -d $GIT_DIR/objects ]; then
@@ -727,16 +716,19 @@ if [ "$image_only" = 1 ] ; then
   exit 0
 fi
 
-if [ "$displaycmd" = "display" ]; then
-    if ! which display >&2 >/dev/null; then
-        cat >&2 <<EOF
-display (part of imagemagick) not found. Image '$imgfilename' was generated,
-but I cannot display it. Either use the --image-only option, or install
-imagemagick. If you have apt-get, you can do that with 'sudo apt-get install
-imagemagick'.
+if ! which "$displaycmd" >&2 >/dev/null; then
+  cat >&2 <<EOF
+Command to display image not found ($displaycmd).
+An image was generated, but I cannot display it. You might want to make use
+the --image-only or the --display-cmd <command> option.
 EOF
-        exit 1
-    fi
+  if [ "$displaycmd" = "display" ]; then
+  cat >&2 <<EOF
+If you have apt-get, you can install the command 'display' (part of
+imagemagick) with 'sudo apt-get install imagemagick'.
+EOF
+  fi
+  exit 1
 fi
-$displaycmd "$imgfilename"
+"$displaycmd" "$imgfilename"
 
